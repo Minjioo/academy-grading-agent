@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 import streamlit as st
 
-from core.chatbot.agent import build_agent, finalize_answer, stream_answer
+from core.chatbot.agent import build_agent, postprocess_answer, stream_answer
 from core.file_router import LABELS, classify_files
 from core.io_utils import read_bytes
 from core.pipeline import NODES, run_grading
@@ -255,6 +255,10 @@ if prompt and ss.graded:
                     _show(answer + " ▌", placeholder)
             except Exception:
                 answer = CHAT_FALLBACK
-            answer = finalize_answer(answer.strip()) or CHAT_FALLBACK
+            # 스트리밍이 끝나면 후처리(밑줄 보정 + 문법 교정)한 최종본으로 다시 그린다
+            try:
+                answer = postprocess_answer(answer.strip()) or CHAT_FALLBACK
+            except Exception:
+                answer = answer.strip() or CHAT_FALLBACK
             _show(answer, placeholder)
     ss.messages.append({"role": "assistant", "content": answer})

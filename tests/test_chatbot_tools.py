@@ -186,3 +186,73 @@ def test_generation_first_line_by_rank(tools):
     assert "가장 많이" not in r2["첫줄"]
     r3 = call(tools, "get_question_for_generation", {"rank": 3})
     assert r3["첫줄"].startswith("3번째로 많이 틀린 문항: 42번 (오답 7명")
+
+
+# ---------------- 문법 교정 후처리 (LLM 없이 가짜 교정기로 검증)
+GEN_SAMPLE = (
+    "가장 많이 틀린 문항: 21번 (오답 9명, 밑줄의미)\n\n"
+    "**문제** 밑줄 친 <u>turned the classroom into a movable hub</u>가 다음 글에서 의미하는 바로 가장 적절한 것은?\n\n"
+    "**지문** A small art school in Busan found that <u>turned the classroom into a movable hub</u>. Students moved freely.\n\n"
+    "**선택지**\n① a\n② b\n③ c\n④ d\n⑤ e\n\n**정답** ②\n\n**해설** 근거 문장이 있습니다."
+)
+BROKEN = "A small art school in Busan found that <u>turned the classroom into a movable hub</u>."
+FIXED = "A small art school in Busan found that portable tables <u>turned the classroom into a movable hub</u>."
+
+
+def test_marked_sentences_only_english_passage():
+    from core.chatbot.grammar_fix import marked_sentences
+
+    assert marked_sentences(GEN_SAMPLE) == [BROKEN]  # 한글 문제 문장·밑줄 없는 문장은 제외
+
+
+def test_polish_applies_valid_fix():
+    from core.chatbot.grammar_fix import polish_answer
+
+    out = polish_answer(GEN_SAMPLE, corrector=lambda s: [FIXED])
+    assert FIXED in out and BROKEN not in out
+    assert out.split("**선택지**")[1] == GEN_SAMPLE.split("**선택지**")[1]  # 선택지·정답 그대로
+
+
+@pytest.mark.parametrize("bad", [
+    "A small art school found that tables <u>turned the room into a hub</u>.",  # <u> 표현이 바뀜
+    "A small art school found that tables turned the classroom into a movable hub.",  # <u> 태그가 사라짐
+])
+def test_polish_rejects_changed_underline(bad):
+    from core.chatbot.grammar_fix import polish_answer
+
+    assert polish_answer(GEN_SAMPLE, corrector=lambda s: [bad]) == GEN_SAMPLE
+
+
+def test_polish_falls_back_on_error_and_skips_non_generation():
+    from core.chatbot.grammar_fix import polish_answer
+
+    def boom(_):
+        raise TimeoutError
+
+    assert polish_answer(GEN_SAMPLE, corrector=boom) == GEN_SAMPLE
+    assert polish_answer(GEN_SAMPLE, corrector=lambda s: []) == GEN_SAMPLE  # 개수 불일치
+    plain = "905학생은 73점입니다."
+    assert polish_answer(plain, corrector=boom) == plain  # 문제 생성 답변이 아니면 호출 안 함
+
+
+def test_polish_keeps_blank():
+    from core.chatbot.grammar_fix import polish_answer
+
+    src = GEN_SAMPLE.replace("<u>turned the classroom into a movable hub</u>", "________", 2)
+    src = src.replace("밑줄 친 ________가", "다음 빈칸에 들어갈 말로")
+    blank_fixed = "A small art school in Busan found that its students ________."
+    assert polish_answer(src, corrector=lambda s: [blank_fixed]).count("its students ________.") == 1
+    # 빈칸을 지운 교정은 거부
+    assert polish_answer(src, corrector=lambda s: ["A small art school found that students moved."]) == src
+
+
+def test_mask_unmask_roundtrip():
+    from core.chatbot.grammar_fix import mask, unmask
+
+    s = "Tools <u>made work lighter</u> and the answer is ________."
+    m, table = mask(s)
+    assert m == "Tools [[U1]] and the answer is [[B1]]."
+    assert unmask("Smart tools [[U1]], so the answer is [[B1]].", table) == \
+        "Smart tools <u>made work lighter</u>, so the answer is ________."
+    assert unmask("Smart tools made work lighter.", table) is None  # 자리표시가 빠지면 거부
+    assert unmask("[[U1]] [[U1]] [[B1]]", table) is None  # 겹쳐도 거부

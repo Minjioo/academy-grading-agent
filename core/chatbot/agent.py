@@ -4,6 +4,7 @@
 - build_agent(results, summary, answer_key, exam) -> agent
 - ask(agent, text, thread_id) -> str
 - stream_answer(agent, text, thread_id) -> 텍스트 조각 generator
+  (스트리밍이 끝나면 화면에서 postprocess_answer(누적 텍스트)로 최종본을 다시 그린다)
 둘 다 가드(core.chatbot.guard)를 먼저 통과시킨다.
 """
 from __future__ import annotations
@@ -90,6 +91,13 @@ def finalize_answer(text: str) -> str:
     return text
 
 
+def postprocess_answer(text: str) -> str:
+    """최종 답변 후처리: 밑줄 보정 → (밑줄·빈칸 문장이 있는 문제 생성 답변만) 문법 교정 1회."""
+    from core.chatbot.grammar_fix import polish_answer
+
+    return polish_answer(finalize_answer(text))
+
+
 def _config(thread_id: str) -> dict:
     return {"configurable": {"thread_id": str(thread_id)}}
 
@@ -120,7 +128,7 @@ def ask(agent, text: str, thread_id: str) -> str:
         if isinstance(msg, AIMessage) and not msg.tool_calls:
             answer = _text_of(msg).strip()
             if answer:
-                return finalize_answer(answer)
+                return postprocess_answer(answer)
     return ERROR_MESSAGE
 
 
@@ -175,4 +183,4 @@ def generate_for_question(results, summary: dict, answer_key: dict, exam: dict |
         ToolMessage(payload, tool_call_id=call_id),
     ]
     model = build_model().bind_tools(make_tools(results, summary, answer_key, exam))
-    return finalize_answer(_text_of(model.invoke(messages)).strip())
+    return postprocess_answer(_text_of(model.invoke(messages)).strip())

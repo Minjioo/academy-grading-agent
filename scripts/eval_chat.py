@@ -22,7 +22,7 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
 from core.answer_key import parse_answer_key  # noqa: E402
-from core.chatbot.agent import ERROR_MESSAGE, build_agent, finalize_answer, stream_answer  # noqa: E402
+from core.chatbot.agent import ERROR_MESSAGE, build_agent, postprocess_answer, stream_answer  # noqa: E402
 from core.chatbot.guard import REFUSAL_MESSAGE  # noqa: E402
 from core.exam_parser import parse_exam  # noqa: E402
 from core.grading import grade, summarize  # noqa: E402
@@ -119,9 +119,10 @@ def run_q(agent, text, thread_id=None):
         if first is None:
             first = time.perf_counter() - t0
         parts.append(piece)
+    # 화면(pages/analyze.py)과 같은 최종 후처리(밑줄 보정 + 문법 교정)까지 시간에 포함
+    answer = postprocess_answer("".join(parts).strip())
     total = time.perf_counter() - t0
-    # 화면(pages/analyze.py)과 같은 최종 보정을 적용
-    return finalize_answer("".join(parts).strip()), total, first or total
+    return answer, total, first or total
 
 
 # ---------------------------------------------------------------- 평가

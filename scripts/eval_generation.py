@@ -80,8 +80,15 @@ def format_check(kind: str, src: str, a: str, sec: float) -> list[str]:
 
     if kind == "밑줄의미" and len(re.findall(r"<u>[^<]+</u>", a)) < 2:
         fails.append("<u>밑줄</u> 2곳(문제+지문) 없음")
-    if kind == "빈칸" and not re.search(r"_{4,}", a):
-        fails.append("빈칸 ____ 없음")
+    if kind == "빈칸":
+        if not re.search(r"_{4,}", a):
+            fails.append("빈칸 ____ 없음")
+        else:
+            # 빈칸은 **지문** ~ **선택지** 사이에 있어야 한다(문제 칸에 빈칸 문장을 두면 FAIL)
+            m = re.search(r"\*\*지문\*\*(.*?)(\*\*선택지\*\*|①)", a, re.DOTALL)
+            head = a.split("**지문**", 1)[0]
+            if not m or not re.search(r"_{4,}", m.group(1)) or re.search(r"_{4,}", head):
+                fails.append("빈칸이 지문 안에 없음")
     if kind == "순서" and not all(f"({x})" in a for x in "ABC"):
         fails.append("(A)(B)(C) 없음")
     if kind == "문장삽입":
