@@ -167,3 +167,22 @@ def test_finalize_answer_skips_single_words():
 
     src = "**지문** wetlands ①<u>absorb</u> water.\n**선택지**\n① absorb"
     assert finalize_answer(src) == src  # 한 낱말 표시는 선택지까지 번지지 않는다
+
+
+@pytest.mark.parametrize("rank,label", [(1, "가장 많이 틀린 문항"), (2, "2번째로 많이 틀린 문항"), (3, "3번째로 많이 틀린 문항")])
+def test_rank_label(rank, label):
+    from core.chatbot.tools import rank_label
+
+    assert rank_label(rank) == label
+
+
+def test_generation_first_line_by_rank(tools):
+    # 샘플: 1위 21번(9명), 2위 33번(8명), 3위 42번(7명)
+    r1 = call(tools, "get_question_for_generation", {"rank": 1})
+    assert r1["문제생성_기준문항"] == 21 and r1["첫줄"].startswith("가장 많이 틀린 문항: 21번 (오답 9명")
+    r2 = call(tools, "get_question_for_generation", {"rank": 2})
+    assert r2["문제생성_기준문항"] == 33 and r2["순위"] == 2
+    assert r2["첫줄"].startswith("2번째로 많이 틀린 문항: 33번 (오답 8명")
+    assert "가장 많이" not in r2["첫줄"]
+    r3 = call(tools, "get_question_for_generation", {"rank": 3})
+    assert r3["첫줄"].startswith("3번째로 많이 틀린 문항: 42번 (오답 7명")

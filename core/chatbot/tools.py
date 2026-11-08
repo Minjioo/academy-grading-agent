@@ -108,8 +108,14 @@ _TYPE_GUIDE = {
 }
 
 
-def generation_payload(q: dict, tied: list[int], exam: dict | None) -> dict:
-    """문제 생성용 데이터: 동점 문항, 기준 문항 통계, 듣기 여부, 본문."""
+def rank_label(rank: int) -> str:
+    """1 → '가장 많이 틀린 문항', 2 이상 → 'N번째로 많이 틀린 문항'."""
+    rank = int(rank)
+    return "가장 많이 틀린 문항" if rank <= 1 else f"{rank}번째로 많이 틀린 문항"
+
+
+def generation_payload(q: dict, tied: list[int], exam: dict | None, rank: int = 1) -> dict:
+    """문제 생성용 데이터: 동점 문항, 기준 문항 통계, 듣기 여부, 본문. rank는 첫 줄 문구에 쓴다."""
     exam = exam or {}
     number = q["number"]
     item = exam.get(number)
@@ -126,7 +132,8 @@ def generation_payload(q: dict, tied: list[int], exam: dict | None) -> dict:
     # 첫 줄 문장을 코드로 만들어 준다(동점 문항 누락 방지)
     nums = ", ".join(f"{t}번" for t in tied)
     cnt = f"각 오답 {q['wrong_count']}명" if len(tied) > 1 else f"오답 {q['wrong_count']}명"
-    out["첫줄"] = f"가장 많이 틀린 문항: {nums} ({cnt}, {kind})" + (f" → {number}번 기준으로 1문제 생성" if len(tied) > 1 else "")
+    out["순위"] = max(1, int(rank))
+    out["첫줄"] = f"{rank_label(rank)}: {nums} ({cnt}, {kind})" + (f" → {number}번 기준으로 1문제 생성" if len(tied) > 1 else "")
     return out
 
 
@@ -246,15 +253,16 @@ def make_tools(results_df: pd.DataFrame, summary: dict, answer_key: dict, exam: 
 
     @tool
     def get_question_for_generation(rank: int = 1) -> str:
-        """가장 많이 틀린 문항(rank=1이면 1위)의 번호, 본문, 정답, 오답 분포를 한 번에 조회한다.
+        """많이 틀린 문항(rank=1이면 1위, '두 번째로 많이 틀린'이면 rank=2)의 번호, 본문, 정답, 오답 분포를 한 번에 조회한다.
         오답 인원이 같은 동점 문항 번호도 모두 알려 주고, 본문은 동점 중 번호가 가장 앞선 문항 기준이다.
         '가장 많이 틀린 문제와 유사한 문제를 만들어 줘' 같은 문제 생성 요청에 이 도구 하나만 쓰면 된다."""
         ranked = _ranked_questions()
         if not ranked:
             return _dump({"결과": "문항 정보가 없습니다"})
-        q = ranked[max(1, min(int(rank), len(ranked))) - 1]
+        rank = max(1, min(int(rank), len(ranked)))
+        q = ranked[rank - 1]
         tied = [r["number"] for r in ranked if r["wrong_count"] == q["wrong_count"]]
-        return _dump(generation_payload(q, tied, exam))
+        return _dump(generation_payload(q, tied, exam, rank))
 
     @tool
     def get_question_text(number: int) -> str:
