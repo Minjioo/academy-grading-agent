@@ -1,0 +1,11 @@
+[theme]
+# 가천대 느낌의 남색 포인트
+primaryColor = "#0B3C8C"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F3F6FB"
+textColor = "#1B2333"
+
+[client]
+# 예외가 나도 화면에 스택 트레이스를 보여 주지 않는다
+showErrorDetails = "none"
+toolbarMode = "viewer"
