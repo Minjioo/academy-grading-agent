@@ -2,7 +2,7 @@
 
 - **학번**: 202235083
 - **이름**: 이민지
-- **배포 URL**: https://academy-grading-agent-zonxuusiwa57ypbhvsxhll.streamlit.app/analyze
+- **배포 URL**: https://academy-grading-agent-zonxuusiwa57ypbhvsxhll.streamlit.app
 
 ---
 
@@ -173,4 +173,3 @@ streamlit run app.py
    - 예: "평균·중앙값 알려줘", "가장 성적이 저조한 학생은?", "많이 틀린 문제로 유사 문제 만들어줘"
 
 > 엑셀 추출 버튼과 채팅 입력창은 채점이 끝난 뒤에 활성화됩니다.
-수정분을 유지한다. 지금 작업 트리를 "유사 문제 생성 규칙 보강 (빈칸 부정문, 요약, 어휘 표시)" 메시지로 커밋하고, 첫 커밋까지 포함해 git push 해 줘. 푸시 전 git status로 커밋될 파일 목록을 보여 주고, 푸시 결과(브랜치, 커밋 해시)를 보여 줘.
