@@ -256,3 +256,38 @@ def test_mask_unmask_roundtrip():
         "Smart tools <u>made work lighter</u>, so the answer is ________."
     assert unmask("Smart tools made work lighter.", table) is None  # 자리표시가 빠지면 거부
     assert unmask("[[U1]] [[U1]] [[B1]]", table) is None  # 겹쳐도 거부
+
+
+# ---------------- 교정 대상 유형 제한: 밑줄의미·빈칸만
+VOCAB_SAMPLE = (
+    "가장 많이 틀린 문항: 30번 (오답 1명, 어휘)\n\n"
+    "**문제** 다음 글의 밑줄 친 부분 중, 문맥상 낱말의 쓰임이 적절하지 않은 것은?\n\n"
+    "**지문**\nThe staff chose to ①<u>preserve</u> an open layout. They ②<u>soften</u> the room. "
+    "Visitors ③<u>maintain</u> distance. Lamps ④<u>highlight</u> pages. People ⑤<u>magnify</u> attention.\n\n"
+    "**선택지**\n① preserve\n② soften\n③ maintain\n④ highlight\n⑤ magnify\n\n**정답** ⑤\n\n**해설** 근거 문장이 있습니다."
+)
+GRAMMAR_SAMPLE = VOCAB_SAMPLE.replace("문맥상 낱말의 쓰임이 적절하지 않은", "어법상 틀린")
+LETTER_SAMPLE = VOCAB_SAMPLE.replace("①<u>", "(a)<u>").replace("②<u>", "(b)<u>").replace("③<u>", "(c)<u>") \
+    .replace("④<u>", "(d)<u>").replace("⑤<u>", "(e)<u>")
+
+
+def _boom(_):
+    raise AssertionError("교정기가 호출되면 안 됨")
+
+
+@pytest.mark.parametrize("src", [VOCAB_SAMPLE, GRAMMAR_SAMPLE, LETTER_SAMPLE])
+def test_polish_skips_vocab_and_grammar(src):
+    from core.chatbot.grammar_fix import answer_kind, needs_fix, polish_answer
+
+    assert answer_kind(src) is None and not needs_fix(src)
+    assert polish_answer(src, corrector=_boom) == src  # 교정기를 부르지 않고 그대로
+
+
+def test_answer_kind_underline_and_blank():
+    from core.chatbot.grammar_fix import answer_kind
+
+    assert answer_kind(GEN_SAMPLE) == "밑줄의미"
+    blank = GEN_SAMPLE.replace("<u>turned the classroom into a movable hub</u>", "________", 2) \
+        .replace("밑줄 친 ________가 다음 글에서 의미하는 바로", "다음 빈칸에 들어갈 말로")
+    assert answer_kind(blank) == "빈칸"
+    assert answer_kind("905학생은 73점입니다.") is None

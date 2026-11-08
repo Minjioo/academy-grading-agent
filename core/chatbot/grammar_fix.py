@@ -1,4 +1,4 @@
-"""유사 문제 문법 교정(후처리)
+"""유사 문제 문법 교정(후처리) — "밑줄의미"·"빈칸" 유형만 대상 (어휘·어법·지칭은 교정하지 않음)
 
 밑줄(<u>)·빈칸(____)이 들어간 영어 문장만 같은 모델로 최소 교정한다.
 - 교정 대상 문장만 보내고, 돌려받은 문장으로 그 자리만 바꾼다(선택지·정답·나머지 문장은 모델에 보내지 않음).
@@ -19,6 +19,7 @@ _HANGUL = re.compile(r"[가-힣]")
 _LABEL = re.compile(r"^\*\*[^*\n]{1,10}\*\*\s*")
 _SENT_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z\"“(])")
 _PLACEHOLDER = re.compile(r"\[\[[UB]\d+\]\]")
+_NUMBERED_U = re.compile(r"(?:[①②③④⑤]|\([a-e]\))\s*<u>")  # 어휘·어법·지칭식 번호 밑줄
 
 CORRECTION_PROMPT = """아래는 영어 문제 지문에서 표시가 들어간 문장들이다.
 [[U1]], [[U2]] …는 밑줄 친 영어 표현, [[B1]] …는 빈칸 자리표시다. 각 자리표시가 실제로 무엇인지는 [범례]에 있다.
@@ -70,8 +71,27 @@ def _invariants(text: str) -> tuple:
     return (_U.findall(text), len(_BLANK.findall(text)), tail)
 
 
+def answer_kind(text: str) -> str | None:
+    """교정 대상 유형 판별: '밑줄의미' 또는 '빈칸'. 그 외(어휘·어법·지칭 등)는 None.
+
+    어휘·어법은 ①<u>낱말</u>·(a)<u>낱말</u>처럼 번호 붙은 밑줄을 쓰고, 일부러 틀린 낱말을 넣는 유형이라
+    문법 교정을 하면 정답이 사라질 수 있으므로 교정하지 않는다.
+    """
+    if not text or "**정답**" not in text:
+        return None
+    body = _body(text)
+    question = body.split("**지문**", 1)[0]
+    if _NUMBERED_U.search(body) or re.search(r"어법|낱말|가리키는 대상", question):
+        return None
+    if "밑줄" in question and "<u>" in body:
+        return "밑줄의미"
+    if _BLANK.search(body):
+        return "빈칸"
+    return None
+
+
 def needs_fix(text: str) -> bool:
-    return bool(text) and "**정답**" in text and bool(marked_sentences(text))
+    return answer_kind(text) is not None and bool(marked_sentences(text))
 
 
 # ---------------------------------------------------------------- 기본 교정기 (같은 모델)
