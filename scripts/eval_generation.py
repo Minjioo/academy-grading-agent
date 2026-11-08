@@ -127,10 +127,13 @@ class Judgement(BaseModel):
     suneung_format: Item = Field(description="수능 영어 문항 형식(발문, 지문, 선택지 5개, 표시 방식)에 맞는가")
     different_topic: Item = Field(description="소재(분야·상황)가 원문과 다른가")
     plausible_distractors: Item = Field(description="오답 선택지가 뻔하지 않고 그럴듯한가(지문과 정반대인 뻔한 오답 위주가 아님)")
+    grammar: Item = Field(description="지문·문제 문장에 문법 오류(비문)가 없는가. <u> 태그를 지우고, 빈칸은 정답을 넣고 읽었을 때 "
+                                      "모든 문장이 문법적으로 완전한가(한 절에 동사가 겹치는 문장 등은 0)")
 
 
 CRITERIA = [("type_match", "유형"), ("single_answer", "정답"), ("no_copy", "복사X"),
-            ("suneung_format", "형식"), ("different_topic", "소재"), ("plausible_distractors", "오답")]
+            ("suneung_format", "형식"), ("different_topic", "소재"), ("plausible_distractors", "오답"),
+            ("grammar", "문법")]
 
 JUDGE_PROMPT = """너는 수능 영어 출제 검토위원이다. 원문 문항과, 그것을 바탕으로 새로 만든 유사 문제를 비교해 각 기준을 0 또는 1로 엄격하게 판정하고 한 줄 사유를 쓴다.
 주의: 소재(분야·상황)가 원문과 다른 것은 출제 의도대로이며 감점 사유가 아니다. type_match는 문제 유형·발문 형식만 본다.
