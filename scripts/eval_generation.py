@@ -91,6 +91,13 @@ def format_check(kind: str, src: str, a: str, sec: float) -> list[str]:
             fails.append("주어진 문장 없음")
     if kind == "요약" and not (a.count("(A)") >= 2 and a.count("(B)") >= 2):
         fails.append("(A)(B) 빈칸 요약문 없음")
+    if kind in ("어법", "어휘"):
+        # ①<u>낱말</u> ~ ⑤<u>낱말</u> (원문이 (a)~(e)면 (a)<u>낱말</u> ~ (e)<u>낱말</u>) 다섯 표시가 모두 지문에 있어야 한다
+        circled = [c for c in CIRCLED if re.search(rf"{c}\s*<u>[^<]+</u>", a)]
+        letters = [x for x in "abcde" if re.search(rf"\({x}\)\s*<u>[^<]+</u>", a)]
+        if max(len(circled), len(letters)) < 5:
+            got = "".join(circled) if len(circled) >= len(letters) else "".join(f"({x})" for x in letters)
+            fails.append(f"지문 안 ①<u>~⑤<u> 표시 5개 미만({got or '없음'})")
     if kind in ("어법", "어휘", "무관한문장", "지칭"):
         letters = all(f"({x})" in a for x in "abcde")
         if not (letters or each_twice(CIRCLED)):
